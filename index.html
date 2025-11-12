@@ -160,7 +160,7 @@
       flex: 1;
       max-width: none;
     }
-    #zoomValue {
+    #zoomValue, #scaleValue {
       font-family: monospace;
       font-size: 14px;
       min-width: 40px;
@@ -249,7 +249,6 @@
         <div class="controls">
           <button id="clearBtn" data-key="btn_clear">Xóa</button>
           <button id="resetView" data-key="btn_reset_view">Reset View</button>
-          <button id="exportArcBtn" data-key="btn_export">Export ArchirectureCode</button>
         </div>
       </header>
       <textarea id="asciiInput" spellcheck="false"></textarea>
@@ -258,13 +257,17 @@
 
     <div class="panel preview" id="previewPanel">
       <header>
-        <strong data-key="tab_preview">3D Preview & Edit</strong> 
+        <strong data-key="tab_preview">3D Preview</strong> 
         <div class="controls">
-          <label><input id="editModeToggle" type="checkbox"> <strong data-key="label_edit_mode">Chế độ Edit</strong></label>
+          <label><input id="editModeToggle" type="checkbox"> <strong data-key="label_edit_mode">Coming Soon</strong></label>
           <label><input id="fadeOuter" type="checkbox"> <span data-key="label_fade_outer">Làm mờ khối ngoài</span></label>
-          <label><span data-key="label_scale">Scale</span> <input id="scaleInput" type="number" value="1" min="0.5" max="3" step="0.1"></label>
-          <label><span data-key="label_yaw">Yaw</span> <input id="yawInput" type="number" step="1" value="45"></label>
-          <label><span data-key="label_pitch">Pitch</span> <input id="pitchInput" type="number" step="1" value="45"></label>
+          
+          <label><span data-key="label_scale">Scale</span>
+            <span class="range-container">
+              <input id="scaleInput" type="range" min="0.5" max="3" step="0.1" value="1">
+              <span id="scaleValue">1.0</span>
+            </span>
+          </label>
           
           <label><span data-key="label_zoom">Zoom</span>
             <span class="range-container">
@@ -274,6 +277,7 @@
           </label>
           
           <label><input id="wireframe" type="checkbox"> <span data-key="label_wireframe">Wireframe</span></label>
+          <button id="exportArcBtn" data-key="btn_export" style="width: 100%;">Export ArchirectureCode</button>
         </div>
       </header>
       <div id="viewer" oncontextmenu="event.preventDefault();"></div>
@@ -298,9 +302,9 @@
         "ru": "Классический ввод"
       },
       "tab_preview": {
-        "vi": "Xem trước",
+        "vi": "Xem & Sửa 3D",
         "en": "Preview",
-        "ru": "Предварительный просмотр"
+        "ru": "Просмотр и правка 3D"
       },
       "label_language": {
         "vi": "Ngôn ngữ:",
@@ -353,9 +357,9 @@
         "ru": "Коснитесь для вращения, прокрутите для масштабирования."
       },
       "label_edit_mode": {
-        "vi": "Coming Soon",
-        "en": "Coming Soon",
-        "ru": "Вскоре"
+        "vi": "Soon",
+        "en": "Soon",
+        "ru": "Soon"
       },
       "label_fade_outer": {
         "vi": "Làm mờ khối ngoài",
@@ -395,6 +399,7 @@
     const wireframe=document.getElementById('wireframe');
     const fadeOuter=document.getElementById('fadeOuter');
     const zoomValue=document.getElementById('zoomValue');
+    const scaleValue=document.getElementById('scaleValue');
     const tabVisualBtn = document.getElementById('tabVisualBtn');
     const tabClassicBtn = document.getElementById('tabClassicBtn');
     const tabPreviewBtn = document.getElementById('tabPreviewBtn');
@@ -440,10 +445,9 @@
       updateYLevelSelect();
     }
 
-    yawInput.value=(yaw*180/Math.PI).toFixed(1);
-    pitchInput.value=(pitch*180/Math.PI).toFixed(1);
     zoomInput.value=radius.toFixed(1);
     zoomValue.textContent = radius.toFixed(1);
+    scaleValue.textContent = parseFloat(scaleInput.value).toFixed(1);
 
     function saveCameraState(){
       localStorage.setItem('yaw',yaw);
@@ -456,8 +460,6 @@
       radius=Math.sqrt(pos.x*pos.x+pos.y*pos.y+pos.z*pos.z);
       pitch=Math.acos(pos.y/radius);
       yaw=Math.atan2(pos.z,pos.x);
-      yawInput.value=(yaw*180/Math.PI).toFixed(1);
-      pitchInput.value=(pitch*180/Math.PI).toFixed(1);
       zoomInput.value=radius.toFixed(1);
       zoomValue.textContent = radius.toFixed(1);
       saveCameraState();
@@ -627,15 +629,11 @@
       const z=radius*Math.sin(pitch)*Math.sin(yaw);
       camera.position.set(x,y,z);
       camera.lookAt(0,0,0);
-      yawInput.value=(yaw*180/Math.PI).toFixed(1);
-      pitchInput.value=(pitch*180/Math.PI).toFixed(1);
       zoomInput.value=radius.toFixed(1);
       zoomValue.textContent = radius.toFixed(1);
       if(save)saveCameraState();
     }
 
-    yawInput.oninput=()=>{yaw=parseFloat(yawInput.value)*Math.PI/180;updateCamera(true);};
-    pitchInput.oninput=()=>{pitch=parseFloat(pitchInput.value)*Math.PI/180;updateCamera(true);};
     zoomInput.oninput=()=>{
         radius=parseFloat(zoomInput.value)||15;
         zoomValue.textContent = radius.toFixed(1);
@@ -811,7 +809,11 @@
       voxelGroup.scale.setScalar(parseFloat(scaleInput.value)||1);
     }
     
-    scaleInput.oninput = () => voxelGroup.scale.setScalar(parseFloat(scaleInput.value)||1);
+    scaleInput.oninput = () => {
+        const newScale = parseFloat(scaleInput.value) || 1;
+        voxelGroup.scale.setScalar(newScale);
+        scaleValue.textContent = newScale.toFixed(1);
+    };
     wireframe.onchange = buildVoxels;
     fadeOuter.onchange = buildVoxels;
     textarea.oninput = buildVoxels; 
@@ -825,6 +827,7 @@
         updateCamera(true);
         voxelGroup.scale.setScalar(1);
         scaleInput.value=1;
+        scaleValue.textContent = (1.0).toFixed(1);
     };
     
     function animate(){
@@ -1064,5 +1067,4 @@
     
   </script>
 </body>
-
 </html>
