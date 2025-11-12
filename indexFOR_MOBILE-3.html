@@ -1,0 +1,1067 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>BG Archirecture Editor</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      overflow: hidden; 
+      font-family: system-ui, Segoe UI, Arial;
+      background: #f3f4f6;
+    }
+    body {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      height: -webkit-fill-available; 
+    }
+    * {
+      box-sizing: border-box; 
+    }
+    .mobile-tabs {
+      display: flex;
+      flex-shrink: 0;
+      background: #fff;
+      box-shadow: 0 1px 3px rgba(0,0,0,.1);
+      z-index: 10;
+    }
+    .mobile-tabs button {
+      flex: 1;
+      border: none;
+      border-radius: 0;
+      padding: 12px;
+      font-weight: 500;
+      background: transparent;
+      border-bottom: 3px solid transparent;
+      color: #666;
+    }
+    .mobile-tabs button.active {
+      color: #000;
+      border-bottom-color: #3b82f6;
+    }
+    
+    .lang-switcher {
+      background: #f3f4f6;
+      padding: 8px 12px;
+      text-align: right;
+      flex-shrink: 0;
+      border-bottom: 1px solid #e5e7eb;
+    }
+    .lang-switcher select {
+      padding: 4px 6px;
+      border-radius: 4px;
+      border: 1px solid #d1d5db;
+      font-size: 14px;
+    }
+    
+    .container {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      padding: 8px;
+      gap: 8px;
+      overflow: hidden;
+    }
+    .panel {
+      background: #fff;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,.06);
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      width: 100%;
+      min-width: unset;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    .panel.visual, .panel.classic, .panel.preview {
+        display: none;
+    }
+
+    textarea {
+      width: 100%;
+      min-height: 200px; 
+      resize: none; 
+      font-family: monospace;
+      font-size: 14px;
+      padding: 8px;
+      border: 1px solid #d1d5db;
+      border-radius: 6px;
+      flex: 1; 
+    }
+    #viewer {
+      width: 100%;
+      background: #e9edf0;
+      border-radius: 6px;
+      min-height: 200px; 
+      flex: 1;
+      cursor: pointer; 
+    }
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+      flex-wrap: wrap;
+    }
+    .footer {
+      margin-top: 8px;
+      font-size: 13px;
+      color: #666;
+      flex-shrink: 0;
+    }
+    button {
+      padding: 6px 10px;
+      border-radius: 6px;
+      border: 1px solid #d1d5db;
+      background: #fff;
+      cursor: pointer;
+    }
+    button:hover { background: #f9fafb; }
+    label { font-size: 14px; }
+
+    .classic header .controls {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .preview header {
+      flex-direction: column;
+      align-items: flex-start;
+      flex-shrink: 0;
+    }
+    .preview .controls {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 12px;
+      width: 100%;
+      margin-top: 10px;
+    }
+    .controls label {
+      width: 100%;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .range-container {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex: 0 1 70%;
+    }
+    input[type="range"] {
+      flex: 1;
+      max-width: none;
+    }
+    #zoomValue {
+      font-family: monospace;
+      font-size: 14px;
+      min-width: 40px;
+      text-align: right;
+      color: #333;
+    }
+
+    #gridContainer {
+      flex: 1;
+      overflow: auto; 
+      display: grid;
+      grid-template-columns: repeat(var(--grid-w, 10), 30px);
+      grid-template-rows: repeat(var(--grid-d, 10), 30px);
+      grid-auto-rows: 30px;
+      grid-gap: 2px;
+      padding: 5px;
+      background: #f0f0f0;
+      border-radius: 6px;
+      align-content: start;
+    }
+    .grid-cell {
+      width: 30px;
+      height: 30px;
+      background: #fff;
+      border: 1px solid #ccc;
+      cursor: pointer;
+    }
+    .grid-cell.active {
+      background: #555; 
+    }
+    .y-controls, .xz-controls {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      width: 100%;
+      flex-wrap: wrap;
+    }
+    .y-controls label { width: auto; }
+    .y-controls select { flex: 1; }
+    .xz-controls {
+      margin-top: 8px;
+      flex-shrink: 0;
+      justify-content: space-around;
+    }
+    .xz-controls button { flex: 1; }
+  </style>
+</head>
+<body>
+
+  <div class="mobile-tabs">
+    <button id="tabVisualBtn" data-key="tab_visual">Visual Editor</button>
+    <button id="tabClassicBtn" class="active" data-key="tab_classic">Classic Input</button>
+    <button id="tabPreviewBtn" data-key="tab_preview">Preview</button> 
+  </div>
+
+  <div class="lang-switcher">
+    <label for="langSelect" data-key="label_language">Ngôn ngữ:</label>
+    <select id="langSelect">
+      <option value="vi">Tiếng Việt</option>
+      <option value="en">English</option>
+      <option value="ru">Русский</option>
+    </select>
+  </div>
+
+  <div class="container">
+    
+    <div class="panel visual" id="visualPanel">
+      <header>
+        <strong data-key="tab_visual">Visual Editor</strong>
+        <div class="controls y-controls">
+          <label data-key="label_floor">Tầng (Y):</label>
+          <select id="yLevelSelect"></select>
+          <button id="addYLevelBtn" data-key-title="title_add_y" title="Thêm tầng Y mới">+</button>
+        </div>
+      </header>
+      <div id="gridContainer"></div>
+      <div class="footer xz-controls">
+        <button id="addXBtn" data-key="btn_add_x">Thêm cột (X)</button>
+        <button id="addZBtn" data-key="btn_add_z">Thêm hàng (Z)</button>
+      </div>
+    </div>
+
+    <div class="panel classic" id="classicPanel">
+      <header>
+        <strong data-key="header_classic">Input ASCII (L = khối, 0 = không khí)</strong>
+        <div class="controls">
+          <button id="clearBtn" data-key="btn_clear">Xóa</button>
+          <button id="resetView" data-key="btn_reset_view">Reset View</button>
+          <button id="exportArcBtn" data-key="btn_export">Export ArchirectureCode</button>
+        </div>
+      </header>
+      <textarea id="asciiInput" spellcheck="false"></textarea>
+      <div class="footer" data-key="footer_classic">Chạm để xoay, cuộn để zoom.</div>
+    </div>
+
+    <div class="panel preview" id="previewPanel">
+      <header>
+        <strong data-key="tab_preview">3D Preview & Edit</strong> 
+        <div class="controls">
+          <label><input id="editModeToggle" type="checkbox"> <strong data-key="label_edit_mode">Chế độ Edit</strong></label>
+          <label><input id="fadeOuter" type="checkbox"> <span data-key="label_fade_outer">Làm mờ khối ngoài</span></label>
+          <label><span data-key="label_scale">Scale</span> <input id="scaleInput" type="number" value="1" min="0.5" max="3" step="0.1"></label>
+          <label><span data-key="label_yaw">Yaw</span> <input id="yawInput" type="number" step="1" value="45"></label>
+          <label><span data-key="label_pitch">Pitch</span> <input id="pitchInput" type="number" step="1" value="45"></label>
+          
+          <label><span data-key="label_zoom">Zoom</span>
+            <span class="range-container">
+              <input id="zoomInput" type="range" min="5" max="50" step="0.1" value="15">
+              <span id="zoomValue">15.0</span>
+            </span>
+          </label>
+          
+          <label><input id="wireframe" type="checkbox"> <span data-key="label_wireframe">Wireframe</span></label>
+        </div>
+      </header>
+      <div id="viewer" oncontextmenu="event.preventDefault();"></div>
+      <div class="footer" data-key="footer_preview">
+        **Xoay:** Chạm/Kéo. **Zoom:** Cuộn/Chụm. <br>
+        Bật "Chế độ Edit" -> **PC:** Chuột trái/phải. **Mobile:** Chạm nhanh/giữ.
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script>
+    const translations = {
+      "tab_visual": {
+        "vi": "Soạn Thảo Trực Quan",
+        "en": "Visual Editor",
+        "ru": "Визуальный редактор"
+      },
+      "tab_classic": {
+        "vi": "Nhập Cổ Điển",
+        "en": "Classic Input",
+        "ru": "Классический ввод"
+      },
+      "tab_preview": {
+        "vi": "Xem trước",
+        "en": "Preview",
+        "ru": "Предварительный просмотр"
+      },
+      "label_language": {
+        "vi": "Ngôn ngữ:",
+        "en": "Language:",
+        "ru": "Язык:"
+      },
+      "label_floor": {
+        "vi": "Tầng (Y):",
+        "en": "Layer (Y):",
+        "ru": "Слой (Y):"
+      },
+      "title_add_y": {
+        "vi": "Thêm tầng Y mới",
+        "en": "Add new Y layer",
+        "ru": "Добавить новый слой Y"
+      },
+      "btn_add_x": {
+        "vi": "Thêm cột (X)",
+        "en": "Add column (X)",
+        "ru": "Добавить столбец (X)"
+      },
+      "btn_add_z": {
+        "vi": "Thêm hàng (Z)",
+        "en": "Add row (Z)",
+        "ru": "Добавить ряд (Z)"
+      },
+      "header_classic": {
+        "vi": "Input ASCII (L = khối, 0 = không khí)",
+        "en": "ASCII Input (L = block, 0 = air)",
+        "ru": "ASCII Ввод (L = блок, 0 = воздух)"
+      },
+      "btn_clear": {
+        "vi": "Xóa",
+        "en": "Clear",
+        "ru": "Очистить"
+      },
+      "btn_reset_view": {
+        "vi": "Reset View",
+        "en": "Reset View",
+        "ru": "Сбросить вид"
+      },
+      "btn_export": {
+        "vi": "Xuất ArchirectureCode",
+        "en": "Export ArchirectureCode",
+        "ru": "Экспорт ArchirectureCode"
+      },
+      "footer_classic": {
+        "vi": "Chạm để xoay, cuộn để zoom.",
+        "en": "Touch to rotate, scroll to zoom.",
+        "ru": "Коснитесь для вращения, прокрутите для масштабирования."
+      },
+      "label_edit_mode": {
+        "vi": "Coming Soon",
+        "en": "Coming Soon",
+        "ru": "Вскоре"
+      },
+      "label_fade_outer": {
+        "vi": "Làm mờ khối ngoài",
+        "en": "Fade outer blocks",
+        "ru": "Затемнить внешние блоки"
+      },
+      "label_scale": { "vi": "Tỷ lệ", "en": "Scale", "ru": "Масштаб" },
+      "label_yaw": { "vi": "Yaw", "en": "Yaw", "ru": "Рыскание" },
+      "label_pitch": { "vi": "Pitch", "en": "Pitch", "ru": "Тангаж" },
+      "label_zoom": { "vi": "Zoom", "en": "Zoom", "ru": "Зум" },
+      "label_wireframe": { "vi": "Khung lưới", "en": "Wireframe", "ru": "Каркас" },
+      "footer_preview": {
+        "vi": "**Xoay:** Chạm/Kéo. **Zoom:** Cuộn/Chụm. <br> Bật \"Chế độ Edit\" -> **PC:** Chuột trái/phải. **Mobile:** Chạm nhanh/giữ.",
+        "en": "**Rotate:** Touch/Drag. **Zoom:** Scroll/Pinch. <br> Enable \"Edit Mode\" -> **PC:** Left/Right click. **Mobile:** Tap/Long-press.",
+        "ru": "**Вращение:** Касание/Перетаскивание. **Зум:** Прокрутка/Щипок. <br> Включите \"Режим правки\" -> **ПК:** ЛКМ/ПКМ. **Моб:** Касание/Долгое нажатие."
+      },
+      "label_floor_prefix": {
+        "vi": "Tầng ",
+        "en": "Layer ",
+        "ru": "Слой "
+      },
+      "alert_empty_data": {
+        "vi": "Dữ liệu rỗng.",
+        "en": "Empty data.",
+        "ru": "Нет данных."
+      }
+    };
+
+    const textarea=document.getElementById('asciiInput');
+    const viewerDiv=document.getElementById('viewer');
+    const clearBtn=document.getElementById('clearBtn');
+    const resetBtn=document.getElementById('resetView');
+    const scaleInput=document.getElementById('scaleInput');
+    const yawInput=document.getElementById('yawInput');
+    const pitchInput=document.getElementById('pitchInput');
+    const zoomInput=document.getElementById('zoomInput');
+    const wireframe=document.getElementById('wireframe');
+    const fadeOuter=document.getElementById('fadeOuter');
+    const zoomValue=document.getElementById('zoomValue');
+    const tabVisualBtn = document.getElementById('tabVisualBtn');
+    const tabClassicBtn = document.getElementById('tabClassicBtn');
+    const tabPreviewBtn = document.getElementById('tabPreviewBtn');
+    const visualPanel = document.getElementById('visualPanel');
+    const classicPanel = document.getElementById('classicPanel');
+    const previewPanel = document.getElementById('previewPanel');
+    const yLevelSelect = document.getElementById('yLevelSelect');
+    const addYLevelBtn = document.getElementById('addYLevelBtn');
+    const gridContainer = document.getElementById('gridContainer');
+    const addXBtn = document.getElementById('addXBtn');
+    const addZBtn = document.getElementById('addZBtn');
+    const editModeToggle = document.getElementById('editModeToggle');
+
+    const langSelect = document.getElementById('langSelect');
+
+    let g = { w: 0, d: 0, h: 0, voxels: [], currentY: 0 };
+    let scene,camera,renderer,voxelGroup;
+    let isDragging=false;
+    let prev={x:0,y:0};
+    let yaw=parseFloat(localStorage.getItem('yaw'))||Math.PI/4;
+    let pitch=parseFloat(localStorage.getItem('pitch'))||Math.PI/4;
+    let radius=parseFloat(localStorage.getItem('radius'))||15;
+    let raycaster, mouse, ghostBlock, plane;
+    let longPressTimer = null;
+    let isLongPress = false;
+    let isPointerDown = false;
+
+    function setLanguage(lang) {
+      if (!lang) lang = 'vi';
+      document.documentElement.lang = lang;
+      document.querySelectorAll('[data-key]').forEach(el => {
+        const key = el.dataset.key;
+        if (translations[key] && translations[key][lang]) {
+          el.innerHTML = translations[key][lang];
+        }
+      });
+      document.querySelectorAll('[data-key-title]').forEach(el => {
+        const key = el.dataset.keyTitle;
+        if (translations[key] && translations[key][lang]) {
+          el.title = translations[key][lang];
+        }
+      });
+      updateYLevelSelect();
+    }
+
+    yawInput.value=(yaw*180/Math.PI).toFixed(1);
+    pitchInput.value=(pitch*180/Math.PI).toFixed(1);
+    zoomInput.value=radius.toFixed(1);
+    zoomValue.textContent = radius.toFixed(1);
+
+    function saveCameraState(){
+      localStorage.setItem('yaw',yaw);
+      localStorage.setItem('pitch',pitch);
+      localStorage.setItem('radius',radius);
+    }
+    
+    function recalcAnglesFromCamera(){
+      const pos=camera.position.clone();
+      radius=Math.sqrt(pos.x*pos.x+pos.y*pos.y+pos.z*pos.z);
+      pitch=Math.acos(pos.y/radius);
+      yaw=Math.atan2(pos.z,pos.x);
+      yawInput.value=(yaw*180/Math.PI).toFixed(1);
+      pitchInput.value=(pitch*180/Math.PI).toFixed(1);
+      zoomInput.value=radius.toFixed(1);
+      zoomValue.textContent = radius.toFixed(1);
+      saveCameraState();
+    }
+
+    function init(){
+      scene=new THREE.Scene();
+      scene.background=new THREE.Color(0xe9edf0);
+      camera=new THREE.PerspectiveCamera(50,viewerDiv.clientWidth/viewerDiv.clientHeight,0.1,1000);
+      renderer=new THREE.WebGLRenderer({antialias:true});
+      renderer.setSize(viewerDiv.clientWidth,viewerDiv.clientHeight);
+      renderer.setPixelRatio(window.devicePixelRatio);
+      renderer.shadowMap.enabled=true;
+      renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+      viewerDiv.appendChild(renderer.domElement);
+      const light=new THREE.DirectionalLight(0xffffff,0.8);
+      light.position.set(10,20,10);
+      light.castShadow=true;
+      scene.add(light);
+      scene.add(new THREE.AmbientLight(0xffffff,0.5));
+      const ground=new THREE.Mesh(new THREE.PlaneGeometry(100,100),
+        new THREE.ShadowMaterial({opacity:0.3}));
+      ground.rotation.x=-Math.PI/2;
+      ground.position.y=-0.5;
+      ground.receiveShadow=true;
+      scene.add(ground);
+      plane = new THREE.Mesh(
+          new THREE.PlaneGeometry(100, 100),
+          new THREE.MeshBasicMaterial({ visible: false, side: THREE.DoubleSide })
+      );
+      plane.rotation.x = -Math.PI / 2;
+      plane.position.y = -0.5; 
+      scene.add(plane);
+      voxelGroup=new THREE.Group();
+      scene.add(voxelGroup);
+      raycaster = new THREE.Raycaster();
+      mouse = new THREE.Vector2();
+      const ghostGeom = new THREE.BoxGeometry(1, 1, 1);
+      const ghostMat = new THREE.MeshBasicMaterial({ color: 0x00ff00, opacity: 0.5, transparent: true });
+      ghostBlock = new THREE.Mesh(ghostGeom, ghostMat);
+      ghostBlock.visible = false;
+      scene.add(ghostBlock);
+      renderer.domElement.addEventListener('mousedown', onPointerDown);
+      renderer.domElement.addEventListener('touchstart', onPointerDown, { passive: false });
+      renderer.domElement.addEventListener('mousemove', onPointerMove);
+      renderer.domElement.addEventListener('touchmove', onPointerMove, { passive: false });
+      renderer.domElement.addEventListener('mouseup', onPointerUp);
+      renderer.domElement.addEventListener('touchend', onPointerUp);
+      renderer.domElement.addEventListener('wheel', onWheel);
+      window.addEventListener('resize', onResize);
+      showPanel(classicPanel);
+    }
+
+    function getPointer(event) {
+        let x, y;
+        if (event.changedTouches) {
+            x = event.changedTouches[0].clientX;
+            y = event.changedTouches[0].clientY;
+        } else {
+            x = event.clientX;
+            y = event.clientY;
+        }
+        const rect = renderer.domElement.getBoundingClientRect();
+        mouse.x = ((x - rect.left) / rect.width) * 2 - 1;
+        mouse.y = -((y - rect.top) / rect.height) * 2 + 1;
+        return { x, y };
+    }
+
+    
+  function onPointerDown(e) {
+      if (e.touches && e.touches.length > 1) {
+        isPointerDown = false;
+        return;
+      }
+
+      isPointerDown = true;
+      isDragging = false;
+      isLongPress = false;
+
+      const coords = getPointer(e); 
+
+      if (getActivePanel() === previewPanel) {
+          updateGhostBlock(); 
+      }
+
+    prev.x = coords.x;
+    prev.y = coords.y;
+
+        clearTimeout(longPressTimer);
+        if (editModeToggle.checked && e.touches) { 
+            longPressTimer = setTimeout(() => {
+                isLongPress = true;
+                isPointerDown = false;
+                isDragging = false;
+                handleEdit(true);
+            }, 500); 
+        }
+    }
+
+    function onPointerMove(e) {
+        if (!isPointerDown) {
+             if (getActivePanel() === previewPanel) {
+                getPointer(e);
+                updateGhostBlock(); 
+            }
+            return;
+        }
+
+        if (isLongPress) return;
+        if (e.touches && e.touches.length > 1) return;
+
+        const coords = getPointer(e);
+        
+        if (!isDragging) {
+            const dragDistance = Math.hypot(coords.x - prev.x, coords.y - prev.y);
+            if (dragDistance > 10) {
+                isDragging = true;
+                clearTimeout(longPressTimer);
+            }
+        }
+
+        if (isDragging) {
+            e.preventDefault();
+            const dx = coords.x - prev.x;
+            const dy = coords.y - prev.y;
+            yaw += dx * 0.01;
+            pitch -= dy * 0.01;
+            const limit = Math.PI * 179 / 180;
+            pitch = Math.max(-limit, Math.min(limit, pitch));
+            prev = { x: coords.x, y: coords.y }; 
+            updateCamera(true);
+        } else {
+            if (getActivePanel() === previewPanel) {
+                getPointer(e);
+                updateGhostBlock(); 
+            }
+        }
+    }
+
+    function onPointerUp(e) {
+        clearTimeout(longPressTimer); 
+        
+        if (!isLongPress && !isDragging) {
+            if (editModeToggle.checked) {
+                if (ghostBlock.visible) {
+                    const isDelete = e.altKey || e.button === 2;
+                    handleEdit(isDelete); 
+                }
+            }
+        }
+        
+        isPointerDown = false;
+        isDragging = false;
+        isLongPress = false;
+    }
+
+    function onWheel(e){
+      e.preventDefault();
+      radius+=e.deltaY*0.01;
+      radius=Math.max(5,Math.min(50,radius));
+      updateCamera(true);
+    }
+
+    function updateCamera(save=false){
+      const x=radius*Math.sin(pitch)*Math.cos(yaw);
+      const y=radius*Math.cos(pitch);
+      const z=radius*Math.sin(pitch)*Math.sin(yaw);
+      camera.position.set(x,y,z);
+      camera.lookAt(0,0,0);
+      yawInput.value=(yaw*180/Math.PI).toFixed(1);
+      pitchInput.value=(pitch*180/Math.PI).toFixed(1);
+      zoomInput.value=radius.toFixed(1);
+      zoomValue.textContent = radius.toFixed(1);
+      if(save)saveCameraState();
+    }
+
+    yawInput.oninput=()=>{yaw=parseFloat(yawInput.value)*Math.PI/180;updateCamera(true);};
+    pitchInput.oninput=()=>{pitch=parseFloat(pitchInput.value)*Math.PI/180;updateCamera(true);};
+    zoomInput.oninput=()=>{
+        radius=parseFloat(zoomInput.value)||15;
+        zoomValue.textContent = radius.toFixed(1);
+        updateCamera(true);
+    };
+
+    function onResize(){
+      if (viewerDiv.clientWidth === 0 || viewerDiv.clientHeight === 0) return;
+      camera.aspect=viewerDiv.clientWidth/viewerDiv.clientHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(viewerDiv.clientWidth,viewerDiv.clientHeight);
+    }
+    
+    function parseGrid(txt){
+      const lines=txt.replace(/\r/g,'').split('\n').map(l=>l.trim());
+      const layers=[];let current=[];
+      for(const line of lines){
+        if(line==='/y'){if(current.length){layers.push(current);current=[];}}
+        else if(line)current.push(line);
+      }
+      if(current.length)layers.push(current);
+      if(!layers.length)return{w:0,d:0,h:0,voxels:[]};
+      const w=Math.max(...layers.flatMap(l=>l.map(r=>r.length)));
+      const d=Math.max(...layers.map(l=>l.length));
+      const h=layers.length;
+      const voxels=[];
+      for(let y=0;y<h;y++){
+        voxels[y]=[];
+        for(let z=0;z<d;z++){
+          voxels[y][z]=[];
+          const row=layers[y][z]||'';
+          for(let x=0;x<w;x++)voxels[y][z][x]=(row[x]==='L'||row[x]==='l');
+        }
+      }
+      return{w,d,h,voxels};
+    }
+    
+    function syncVisualToTextarea(andBuild = true) {
+      let newText = [];
+      for (let y = 0; y < g.h; y++) {
+        let layerLines = [];
+        g.w = Math.max(g.w, ... (g.voxels[y] || []).map(row => (row || []).length));
+        g.d = Math.max(g.d, (g.voxels[y] || []).length);
+        
+        for (let z = 0; z < g.d; z++) {
+          let row = '';
+          for (let x = 0; x < g.w; x++) {
+            row += (g.voxels[y]?.[z]?.[x]) ? 'L' : '0';
+          }
+          layerLines.push(row);
+        }
+        newText.push(layerLines.join('\n'));
+      }
+      textarea.value = newText.join('\n/y\n');
+      if (andBuild) {
+        buildVoxels();
+      }
+    }
+
+    function exportARC() {
+      let text = textarea.value;
+      if (!text || !text.trim()) {
+        const lang = langSelect.value;
+        alert(translations['alert_empty_data'][lang] || 'Empty data.');
+        return;
+      }
+      text = text
+      .split('\n')
+      .map(line => line.trim() === '/y' ? '' : line)
+      .join('\n');
+      const SYMS = ['L', '0', '\n'];
+      const counts = {};
+      for (const s of SYMS) counts[s] = 1;
+      for (const ch of text)
+        if (SYMS.includes(ch))
+          counts[ch] = (counts[ch] || 0) + 1;
+      function buildCodes(freqs) {
+        let heap = Object.entries(freqs).map(([sym, wt]) => [wt, [[sym, ""]]]);
+        heap.sort((a, b) => a[0] - b[0]);
+        while (heap.length > 1) {
+          const lo = heap.shift(), hi = heap.shift();
+          for (const p of lo[1]) p[1] = '0' + p[1];
+          for (const p of hi[1]) p[1] = '1' + p[1];
+          heap.push([lo[0] + hi[0], lo[1].concat(hi[1])]);
+          heap.sort((a, b) => a[0] - b[0]);
+        }
+        const codes = {};
+        if (heap.length)
+          for (const [sym, code] of heap[0][1])
+            codes[sym] = code || '0';
+        for (const s of SYMS)
+          if (!codes[s]) codes[s] = '0';
+        return codes;
+      }
+      function bitsToBytes(bstr) {
+        const pad = (8 - (bstr.length % 8)) % 8;
+        bstr += '0'.repeat(pad);
+        const bytes = [pad];
+        for (let i = 0; i < bstr.length; i += 8)
+          bytes.push(parseInt(bstr.slice(i, i + 8), 2));
+        return new Uint8Array(bytes);
+      }
+      function toBase64(bytes) {
+        let bin = '';
+        for (let b of bytes) bin += String.fromCharCode(b);
+        return btoa(bin)
+          .replace(/\+/g, '-')
+          .replace(/\//g, '_')
+          .replace(/=+$/, '');
+      }
+      const codes = buildCodes(counts);
+      const bstr = [...text].map(ch => codes[ch]).join('');
+      const packed = bitsToBytes(bstr);
+      const payload = toBase64(packed);
+      const header =
+        "HUF|" +
+        SYMS.map(s => codes[s].length).join(",") + "|" +
+        SYMS.map(s => codes[s]).join(",") +
+        "|LEN=" + text.length + "|";
+      const arc = "ARC:HUF:" + header + payload;
+      const blob = new Blob([arc], { type: "text/plain" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = "architecture_huf.txt";
+      a.click();
+    }
+    document.getElementById('exportArcBtn').addEventListener('click', exportARC);
+
+    function buildVoxels(){
+      syncTextareaToVisual(false); 
+      while(voxelGroup.children.length)voxelGroup.remove(voxelGroup.children[0]);
+      const {w,d,h,voxels} = g;
+      if(!w||!d||!h)return;
+      const s = 1; 
+      const wf=wireframe.checked;
+      const fade=fadeOuter.checked;
+      const box=new THREE.BoxGeometry(s,s,s);
+      const edgeGeom=new THREE.EdgesGeometry(box);
+      const cx=(w-1)/2,cz=(d-1)/2;
+      for(let y=0;y<h;y++)
+        for(let z=0;z<d;z++)
+          for(let x=0;x<w;x++)
+            if(voxels[y]?.[z]?.[x]){
+              const exposed =
+                !voxels[y]?.[z]?.[x-1] || !voxels[y]?.[z]?.[x+1] ||
+                !voxels[y]?.[z-1]?.[x] || !voxels[y]?.[z+1]?.[x] ||
+                !voxels[y-1]?.[z]?.[x] || !voxels[y+1]?.[z]?.[x];
+              const isOuter = exposed;
+              const mat=new THREE.MeshLambertMaterial({
+                color:0x555555,
+                wireframe:wf,
+                transparent:fade,
+                opacity:fade && isOuter ? 0.25 : 1
+              });
+              const cube=new THREE.Mesh(box,mat);
+              const px = (x-cx)*s, py = y*s, pz = (z-cz)*s;
+              cube.position.set(px, py, pz);
+              cube.userData = { gridX: x, gridY: y, gridZ: z };
+              cube.castShadow=true;
+              cube.receiveShadow=true;
+              voxelGroup.add(cube);
+              if(!wf){
+                const edgeMat=new THREE.LineBasicMaterial({
+                  color:0x222222,
+                  transparent:true,
+                  opacity:fade && isOuter ? 0.15 : 0.4
+                });
+                const edges=new THREE.LineSegments(edgeGeom,edgeMat);
+                edges.position.copy(cube.position);
+                voxelGroup.add(edges);
+              }
+            }
+      voxelGroup.scale.setScalar(parseFloat(scaleInput.value)||1);
+    }
+    
+    scaleInput.oninput = () => voxelGroup.scale.setScalar(parseFloat(scaleInput.value)||1);
+    wireframe.onchange = buildVoxels;
+    fadeOuter.onchange = buildVoxels;
+    textarea.oninput = buildVoxels; 
+    
+    clearBtn.onclick=()=>{
+        textarea.value='';
+        buildVoxels(); 
+    };
+    resetBtn.onclick=()=>{
+        yaw=Math.PI/4;pitch=Math.PI/4;radius=15;
+        updateCamera(true);
+        voxelGroup.scale.setScalar(1);
+        scaleInput.value=1;
+    };
+    
+    function animate(){
+        requestAnimationFrame(animate);
+        renderer.render(scene,camera);
+    }
+
+    function getVoxel(x, y, z) {
+        return g.voxels[y]?.[z]?.[x] || false;
+    }
+
+    function setVoxel(x, y, z, value) {
+        if (y < 0) return; 
+        while (g.h <= y) {
+            g.voxels.push([]);
+            g.h++;
+        }
+        while ((g.voxels[y] || []).length <= z) {
+            g.voxels[y].push([]);
+            g.d = Math.max(g.d, z + 1);
+        }
+        while ((g.voxels[y][z] || []).length <= x) {
+            g.voxels[y][z].push(false);
+            g.w = Math.max(g.w, x + 1);
+        }
+        g.voxels[y][z][x] = value;
+    }
+
+    function updateGhostBlock() {
+        if (!editModeToggle.checked) {
+            ghostBlock.visible = false;
+            return;
+        }
+        raycaster.setFromCamera(mouse, camera);
+        const objectsToTest = [...voxelGroup.children];
+        if (voxelGroup.children.length === 0) {
+            objectsToTest.push(plane);
+        }
+        const intersects = raycaster.intersectObjects(objectsToTest);
+        if (intersects.length > 0) {
+            const intersect = intersects[0];
+            const normal = intersect.face.normal.clone();
+            normal.transformDirection(intersect.object.matrixWorld);
+            normal.x = Math.round(normal.x);
+            normal.y = Math.round(normal.y);
+            normal.z = Math.round(normal.z);
+            let voxelPos;
+            if (intersect.object === plane) {
+                voxelPos = intersect.point.add(normal.multiplyScalar(0.5)).floor();
+                voxelPos.y = 0; 
+            } else {
+                const { gridX, gridY, gridZ } = intersect.object.userData;
+                voxelPos = new THREE.Vector3(gridX, gridY, gridZ).add(normal);
+            }
+            ghostBlock.position.copy(voxelPos);
+            const { w, d } = g;
+            const cx = (w - 1) / 2, cz = (d - 1) / 2;
+            const s = parseFloat(scaleInput.value) || 1;
+            ghostBlock.position.set(
+                (voxelPos.x - cx) * s,
+                voxelPos.y * s,
+                (voxelPos.z - cz) * s
+            );
+            ghostBlock.scale.setScalar(s);
+            ghostBlock.visible = true; 
+            ghostBlock.userData = { gridX: voxelPos.x, gridY: voxelPos.y, gridZ: voxelPos.z };
+            if (intersect.object !== plane) {
+                ghostBlock.userData.deleteTarget = intersect.object.userData;
+            } else {
+                ghostBlock.userData.deleteTarget = null;
+            }
+        } else {
+            ghostBlock.visible = false;
+        }
+    }
+
+    function handleEdit(isDelete) {
+        if (!ghostBlock.visible) return;
+        const { gridX, gridY, gridZ } = ghostBlock.userData;
+        const deleteTarget = ghostBlock.userData.deleteTarget;
+        syncTextareaToVisual(false);
+        if (isDelete) {
+            if (deleteTarget) {
+                setVoxel(deleteTarget.gridX, deleteTarget.gridY, deleteTarget.gridZ, false);
+            }
+        } else {
+            setVoxel(gridX, gridY, gridZ, true);
+        }
+        syncVisualToTextarea(true); 
+        updateGhostBlock();
+    }
+
+    function syncTextareaToVisual(andRender2D = true) {
+      const { w, d, h, voxels } = parseGrid(textarea.value);
+      g.w = w; g.d = d; g.h = h; g.voxels = voxels;
+      if (g.h === 0 || g.w === 0 || g.d === 0) {
+          g = { w: 5, d: 5, h: 1, voxels: [Array(5).fill(0).map(() => Array(5).fill(false))], currentY: 0 };
+          syncVisualToTextarea(false); 
+      }
+      g.currentY = Math.min(Math.max(0, g.currentY), g.h - 1);
+      if(andRender2D) {
+        updateYLevelSelect();
+        renderVisualGrid();
+      }
+    }
+
+    function updateYLevelSelect() {
+      const lang = langSelect.value;
+      const prefix = translations['label_floor_prefix'][lang] || 'Layer ';
+      
+      yLevelSelect.innerHTML = '';
+      for (let i = 0; i < g.h; i++) {
+        const opt = document.createElement('option');
+        opt.value = i;
+        opt.textContent = `${prefix}${i + 1}`;
+        opt.selected = (i === g.currentY);
+        yLevelSelect.appendChild(opt);
+      }
+    }
+
+    function renderVisualGrid() {
+      gridContainer.innerHTML = '';
+      if (g.h === 0) return;
+      gridContainer.style.setProperty('--grid-w', g.w);
+      gridContainer.style.setProperty('--grid-d', g.d);
+      const y = g.currentY;
+      if (!g.voxels[y]) return; 
+      for (let z = 0; z < g.d; z++) {
+        if (!g.voxels[y][z]) g.voxels[y][z] = Array(g.w).fill(false); 
+        for (let x = 0; x < g.w; x++) {
+          const cell = document.createElement('div');
+          cell.className = 'grid-cell';
+          if (g.voxels[y][z][x]) {
+            cell.classList.add('active');
+          }
+          cell.dataset.x = x;
+          cell.dataset.z = z;
+          gridContainer.appendChild(cell);
+        }
+      }
+    }
+
+    gridContainer.addEventListener('click', e => {
+      if (!e.target.classList.contains('grid-cell')) return;
+      const x = parseInt(e.target.dataset.x);
+      const z = parseInt(e.target.dataset.z);
+      const y = g.currentY;
+      g.voxels[y][z][x] = !g.voxels[y][z][x]; 
+      e.target.classList.toggle('active'); 
+      syncVisualToTextarea(); 
+    });
+
+    yLevelSelect.addEventListener('change', () => {
+      g.currentY = parseInt(yLevelSelect.value);
+      renderVisualGrid();
+    });
+
+    addYLevelBtn.addEventListener('click', () => {
+      g.h++;
+      const newLayer = Array(g.d).fill(0).map(() => Array(g.w).fill(false));
+      g.voxels.push(newLayer);
+      g.currentY = g.h - 1; 
+      updateYLevelSelect();
+      renderVisualGrid();
+      syncVisualToTextarea();
+    });
+
+    addXBtn.addEventListener('click', () => {
+      g.w++;
+      for (let y = 0; y < g.h; y++) {
+        for (let z = 0; z < g.d; z++) {
+          if (!g.voxels[y][z]) g.voxels[y][z] = Array(g.w - 1).fill(false);
+          g.voxels[y][z].push(false); 
+        }
+      }
+      renderVisualGrid();
+      syncVisualToTextarea();
+    });
+
+    addZBtn.addEventListener('click', () => {
+      g.d++;
+      for (let y = 0; y < g.h; y++) {
+        if (!g.voxels[y]) g.voxels[y] = Array(g.d - 1).fill(0).map(() => Array(g.w).fill(false));
+        g.voxels[y].push(Array(g.w).fill(false)); 
+      }
+      renderVisualGrid();
+      syncVisualToTextarea();
+    });
+
+    const allTabs = [tabVisualBtn, tabClassicBtn, tabPreviewBtn];
+    const allPanels = [visualPanel, classicPanel, previewPanel];
+
+    function getActivePanel() {
+        return allPanels.find(p => p.style.display === 'flex');
+    }
+
+    function showPanel(panelToShow) {
+      allPanels.forEach(p => p.style.display = 'none');
+      panelToShow.style.display = 'flex';
+      allTabs.forEach(t => t.classList.remove('active'));
+      if (panelToShow === visualPanel) {
+        tabVisualBtn.classList.add('active');
+        syncTextareaToVisual(true); 
+      } else if (panelToShow === classicPanel) {
+        tabClassicBtn.classList.add('active');
+      } else if (panelToShow === previewPanel) {
+        tabPreviewBtn.classList.add('active');
+        buildVoxels(); 
+        setTimeout(onResize, 0); 
+      }
+    }
+
+    tabVisualBtn.addEventListener('click', () => showPanel(visualPanel));
+    tabClassicBtn.addEventListener('click', () => showPanel(classicPanel));
+    tabPreviewBtn.addEventListener('click', () => showPanel(previewPanel));
+
+    
+    langSelect.addEventListener('change', (e) => {
+      const newLang = e.target.value;
+      localStorage.setItem('editorLanguage', newLang);
+      setLanguage(newLang);
+    });
+
+    function main() {
+      const savedLang = localStorage.getItem('editorLanguage') || 'vi';
+      langSelect.value = savedLang;
+      setLanguage(savedLang);
+      init();
+      textarea.value='LLLL\nL00L\nL00L\nLLLL\n/y\nLLLL\nL00L\nL00L\nLLLL';
+      buildVoxels(); 
+      updateCamera();
+      animate();
+      new ResizeObserver(onResize).observe(viewerDiv);
+    }
+    
+    main();
+    
+  </script>
+</body>
+</html>
